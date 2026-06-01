@@ -5,6 +5,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -89,6 +90,17 @@ public class ResourceFolderLister {
         // lexicographic order on the path puts each directory before everything inside it
         entries.sort(Comparator.comparing(Entry::path));
         return entries;
+    }
+
+    /**
+     * Opens the content of a listed file for reading. Pass a base-folder-prefixed path as
+     * produced by {@link #listFiles} / {@link #listEntries}, e.g. {@code "templates/sub/b.txt"}.
+     * Reads via the classpath, so it works in the IDE and inside a packaged JAR/WAR.
+     *
+     * <p>The caller is responsible for closing the returned stream.
+     */
+    public InputStream openStream(String path) throws IOException {
+        return resolver.getResource("classpath:" + path).getInputStream();
     }
 
     /**
