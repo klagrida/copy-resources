@@ -23,4 +23,19 @@ class ResourceFolderListerTests {
                 List.of("templates/a.txt", "templates/sub/b.txt", "templates/sub/deep/c.json"),
                 files);
     }
+
+    @Test
+    void listsDirectoriesAndFilesParentFirst() throws IOException {
+        List<ResourceFolderLister.Entry> entries = lister.listEntries("templates");
+
+        assertEquals(
+                List.of(
+                        new ResourceFolderLister.Entry("templates", true),
+                        new ResourceFolderLister.Entry("templates/a.txt", false),
+                        new ResourceFolderLister.Entry("templates/sub", true),
+                        new ResourceFolderLister.Entry("templates/sub/b.txt", false),
+                        new ResourceFolderLister.Entry("templates/sub/deep", true),
+                        new ResourceFolderLister.Entry("templates/sub/deep/c.json", false)),
+                entries);
+    }
 }

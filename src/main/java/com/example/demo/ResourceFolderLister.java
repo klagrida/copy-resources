@@ -9,7 +9,9 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.TreeSet;
 
 /**
  * Lists the files bundled under a resource folder, returning each file's path
@@ -47,6 +49,56 @@ public class ResourceFolderLister {
         }
         Collections.sort(paths);
         return paths;
+    }
+
+    /**
+     * Lists every directory and file under {@code baseFolder}, ordered so that a directory
+     * always appears <em>before</em> anything it contains. Recreate the tree on the target
+     * system by iterating this list in order: make a directory when {@link Entry#directory()}
+     * is {@code true}, write a file otherwise.
+     *
+     * <p>Directories are derived from the file paths (not from archive directory entries,
+     * which are not always present), so the result is identical in the IDE and inside a
+     * packaged JAR/WAR, on any OS.
+     *
+     * @param baseFolder folder name under {@code src/main/resources}, e.g. "templates"
+     * @return ordered directory + file entries, each path prefixed with the base folder
+     */
+    public List<Entry> listEntries(String baseFolder) throws IOException {
+        Resource[] resources =
+                resolver.getResources("classpath*:" + baseFolder + "/**/*");
+
+        TreeSet<String> directories = new TreeSet<>();
+        TreeSet<String> files = new TreeSet<>();
+        for (Resource resource : resources) {
+            if (!resource.isReadable()) {
+                continue; // skip archive directory entries; we derive directories ourselves
+            }
+            String path = baseFolder + "/" + relativePath(resource, baseFolder);
+            files.add(path);
+
+            // record every ancestor directory of this file, including the base folder
+            for (int slash = path.lastIndexOf('/'); slash > 0; slash = path.lastIndexOf('/', slash - 1)) {
+                directories.add(path.substring(0, slash));
+            }
+        }
+
+        List<Entry> entries = new ArrayList<>(directories.size() + files.size());
+        directories.forEach(d -> entries.add(new Entry(d, true)));
+        files.forEach(f -> entries.add(new Entry(f, false)));
+        // lexicographic order on the path puts each directory before everything inside it
+        entries.sort(Comparator.comparing(Entry::path));
+        return entries;
+    }
+
+    /**
+     * A single entry in the listing.
+     *
+     * @param path      base-folder-prefixed path with {@code '/'} separators, e.g.
+     *                  {@code "templates/sub"} or {@code "templates/sub/b.txt"}
+     * @param directory {@code true} for a directory, {@code false} for a file
+     */
+    public record Entry(String path, boolean directory) {
     }
 
     /**
