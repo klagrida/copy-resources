@@ -1,35 +1,37 @@
 package com.example.demo;
 
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import com.example.demo.ResourceFolderLister.Entry;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
  * Copies a resource folder (and all of its subfolders) out of the classpath to a
  * destination directory on disk, preserving the original folder structure.
  *
- * <p>Works identically when running from the IDE/exploded classes and from inside a
- * packaged JAR/WAR, because everything is read through {@link Resource#getInputStream()}
- * rather than {@link Resource#getFile()}.
+ * <p>Enumeration is delegated to {@link ResourceFolderLister}, which returns directories
+ * and files in parent-first order. Files are read through the classpath (never as
+ * {@code File}s), so this works identically in the IDE and inside a packaged JAR/WAR, on
+ * any OS.
  */
 @Service
 public class ResourceFolderCopier {
 
-    private final PathMatchingResourcePatternResolver resolver =
-            new PathMatchingResourcePatternResolver();
-
     private static final DateTimeFormatter BACKUP_STAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+
+    private final ResourceFolderLister lister;
+
+    public ResourceFolderCopier(ResourceFolderLister lister) {
+        this.lister = lister;
+    }
 
     /**
      * Copies {@code baseFolder} from the classpath into {@code destination}.
@@ -51,38 +53,35 @@ public class ResourceFolderCopier {
         }
         Files.createDirectories(destination);
 
-        // "**/*" = every file in every subfolder, recursively.
-        // classpath*: scans all matching locations, including jars/wars.
-        Resource[] resources =
-                resolver.getResources("classpath*:" + baseFolder + "/**/*");
+        // Directories and files, parent-first, each prefixed with the base folder.
+        List<Entry> entries = lister.listEntries(baseFolder);
+        String prefix = baseFolder + "/";
 
         int copied = 0;
-        for (Resource resource : resources) {
-            if (!resource.isReadable()) {
-                continue; // skip directory entries
+        for (Entry entry : entries) {
+            // strip the base-folder prefix: the base folder itself maps to `destination`
+            if (entry.path().equals(baseFolder)) {
+                continue; // already created above
             }
+            String relativePath = entry.path().substring(prefix.length());
 
-            // Resolve segment-by-segment so the "/"-separated classpath path maps
-            // correctly onto the local filesystem (works on Windows too).
+            // Resolve segment-by-segment so the "/"-separated path maps onto the local
+            // filesystem correctly (works on Windows too).
             Path target = destination;
-            for (String segment : relativePath(resource, baseFolder).split("/")) {
+            for (String segment : relativePath.split("/")) {
                 if (!segment.isEmpty()) {
                     target = target.resolve(segment);
                 }
             }
 
-            // recreate the subfolder structure (getParent() is null for a root-level file)
-            Path parent = target.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
+            if (entry.directory()) {
+                Files.createDirectories(target);
+            } else {
+                try (InputStream is = lister.openStream(entry.path())) {
+                    Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
+                }
+                copied++;
             }
-
-            // process this one file
-            try (InputStream is = resource.getInputStream()) {
-                Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
-                // ... or do whatever per-file work you need here
-            }
-            copied++;
         }
         return new CopyResult(copied, backup);
     }
@@ -100,32 +99,6 @@ public class ResourceFolderCopier {
             candidate = destination.resolveSibling(name + ".backup-" + stamp + "-" + n++);
         }
         return candidate;
-    }
-
-    /**
-     * Extracts the path relative to the base folder, using forward slashes.
-     * e.g. {@code "jar:file:/app.jar!/templates/sub/a.txt"} -> {@code "sub/a.txt"}.
-     *
-     * <p>The URL form is percent-encoded (e.g. spaces as {@code %20}), so the result is
-     * decoded back to real names before it is mapped onto the filesystem.
-     */
-    private String relativePath(Resource resource, String baseFolder) throws IOException {
-        String url = resource.getURL().toString();
-        String marker = "/" + baseFolder + "/";
-        int idx = url.lastIndexOf(marker);
-        if (idx < 0) {
-            // base folder is the root of the classpath, fall back to the (decoded) filename
-            return resource.getFilename();
-        }
-        return decode(url.substring(idx + marker.length()));
-    }
-
-    /**
-     * Decodes percent-escapes from a URL path while preserving a literal {@code '+'}
-     * (which {@link URLDecoder} would otherwise turn into a space).
-     */
-    private static String decode(String urlPath) {
-        return URLDecoder.decode(urlPath.replace("+", "%2B"), StandardCharsets.UTF_8);
     }
 
     /**
