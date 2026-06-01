@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -60,8 +62,14 @@ public class ResourceFolderCopier {
                 continue; // skip directory entries
             }
 
-            String relativePath = relativePath(resource, baseFolder);
-            Path target = destination.resolve(relativePath);
+            // Resolve segment-by-segment so the "/"-separated classpath path maps
+            // correctly onto the local filesystem (works on Windows too).
+            Path target = destination;
+            for (String segment : relativePath(resource, baseFolder).split("/")) {
+                if (!segment.isEmpty()) {
+                    target = target.resolve(segment);
+                }
+            }
 
             // recreate the subfolder structure (getParent() is null for a root-level file)
             Path parent = target.getParent();
@@ -95,18 +103,29 @@ public class ResourceFolderCopier {
     }
 
     /**
-     * Extracts the path relative to the base folder.
-     * e.g. {@code ".../classes/templates/sub/a.txt"} -> {@code "sub/a.txt"}.
+     * Extracts the path relative to the base folder, using forward slashes.
+     * e.g. {@code "jar:file:/app.jar!/templates/sub/a.txt"} -> {@code "sub/a.txt"}.
+     *
+     * <p>The URL form is percent-encoded (e.g. spaces as {@code %20}), so the result is
+     * decoded back to real names before it is mapped onto the filesystem.
      */
     private String relativePath(Resource resource, String baseFolder) throws IOException {
         String url = resource.getURL().toString();
         String marker = "/" + baseFolder + "/";
         int idx = url.lastIndexOf(marker);
         if (idx < 0) {
-            // base folder is the root of the classpath, fall back to filename
+            // base folder is the root of the classpath, fall back to the (decoded) filename
             return resource.getFilename();
         }
-        return url.substring(idx + marker.length());
+        return decode(url.substring(idx + marker.length()));
+    }
+
+    /**
+     * Decodes percent-escapes from a URL path while preserving a literal {@code '+'}
+     * (which {@link URLDecoder} would otherwise turn into a space).
+     */
+    private static String decode(String urlPath) {
+        return URLDecoder.decode(urlPath.replace("+", "%2B"), StandardCharsets.UTF_8);
     }
 
     /**
