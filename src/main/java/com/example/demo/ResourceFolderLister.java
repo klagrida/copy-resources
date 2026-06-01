@@ -28,8 +28,9 @@ public class ResourceFolderLister {
 
     /**
      * @param baseFolder folder name under {@code src/main/resources}, e.g. "templates"
-     * @return the relative paths of every file under {@code baseFolder}, sorted; the paths
-     *         start <em>after</em> the base folder and use {@code '/'} as separator
+     * @return the paths of every file under {@code baseFolder}, sorted; each path is
+     *         prefixed with the base folder (e.g. {@code "templates/sub/b.txt"}) and uses
+     *         {@code '/'} as separator
      */
     public List<String> listFiles(String baseFolder) throws IOException {
         // "**/*" = every file in every subfolder, recursively.
@@ -37,15 +38,15 @@ public class ResourceFolderLister {
         Resource[] resources =
                 resolver.getResources("classpath*:" + baseFolder + "/**/*");
 
-        List<String> relativePaths = new ArrayList<>();
+        List<String> paths = new ArrayList<>();
         for (Resource resource : resources) {
             if (!resource.isReadable()) {
                 continue; // skip directory entries
             }
-            relativePaths.add(relativePath(resource, baseFolder));
+            paths.add(baseFolder + "/" + relativePath(resource, baseFolder));
         }
-        Collections.sort(relativePaths);
-        return relativePaths;
+        Collections.sort(paths);
+        return paths;
     }
 
     /**

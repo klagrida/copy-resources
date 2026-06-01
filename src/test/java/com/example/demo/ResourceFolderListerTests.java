@@ -20,7 +20,7 @@ class ResourceFolderListerTests {
         List<String> files = lister.listFiles("templates");
 
         assertEquals(
-                List.of("a.txt", "sub/b.txt", "sub/deep/c.json"),
+                List.of("templates/a.txt", "templates/sub/b.txt", "templates/sub/deep/c.json"),
                 files);
     }
 }
