@@ -42,7 +42,7 @@ class ResourceFolderControllerTests {
         RestTemplate rest = restTemplateBuilder.build();
 
         ResponseEntity<Map> response = rest.exchange(
-                "http://localhost:" + port + "/api/resource-folders/templates",
+                "http://localhost:" + port + "/api/resource-folders",
                 HttpMethod.PUT,
                 null,
                 Map.class);

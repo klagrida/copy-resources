@@ -3,7 +3,6 @@ package com.example.demo;
 import com.example.demo.ResourceFolderCopier.CopyResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,28 +24,30 @@ import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 public class ResourceFolderController {
 
     private final ResourceFolderCopier copier;
+    private final String baseFolder;
     private final Path destRoot;
 
     public ResourceFolderController(ResourceFolderCopier copier,
+                                    @Value("${app.resource-copy.base-folder}") String baseFolder,
                                     @Value("${app.resource-copy.dest-dir}") String destDir) {
         this.copier = copier;
+        this.baseFolder = baseFolder;
         this.destRoot = Path.of(destDir);
     }
 
     /**
-     * Copies a classpath folder to disk. The destination is taken from configuration
-     * ({@code app.resource-copy.dest-dir}) with the folder name appended; if it already
-     * exists it is backed up first.
+     * Copies the configured classpath folder ({@code app.resource-copy.base-folder}) to the
+     * configured destination ({@code app.resource-copy.dest-dir}/&lt;folder&gt;); if the
+     * destination already exists it is backed up first.
      *
      * <pre>{@code
-     * PUT /api/resource-folders/templates
+     * PUT /api/resource-folders
      * }</pre>
      *
-     * @param baseFolder folder name under resources (path variable), e.g. "templates"
      * @return a summary of what was copied and where the previous copy was backed up
      */
-    @PutMapping("/{baseFolder}")
-    public ResponseEntity<CopyResponse> copy(@PathVariable String baseFolder) {
+    @PutMapping
+    public ResponseEntity<CopyResponse> copy() {
         Path destination = destRoot.resolve(baseFolder);
         try {
             CopyResult result = copier.copyFolder(baseFolder, destination);
