@@ -14,7 +14,8 @@ jobs:
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
 
-    # Use bash everywhere so ./mvnw works on Windows too (Git Bash is preinstalled).
+    # Use bash everywhere so ./mvnw and the shell steps work on Windows too
+    # (Git Bash is preinstalled on the Windows runner).
     defaults:
       run:
         shell: bash
@@ -30,13 +31,65 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Run tests
+      - name: Run unit tests
         run: ./mvnw --batch-mode --no-transfer-progress test
 
-      - name: Upload test reports
+      - name: Build jar
+        run: ./mvnw --batch-mode --no-transfer-progress -DskipTests package
+
+      # Real end-to-end run: start the packaged app, override the destination with a
+      # per-OS real path, call the endpoint, and assert the files landed on disk.
+      - name: Run app and verify real copy
+        run: |
+          set -euo pipefail
+
+          # Workspace-relative path -> resolves to a valid absolute path on every OS.
+          DEST="ci-resource-copy-output"
+          rm -rf "$DEST"
+
+          java -jar target/demo-0.0.1-SNAPSHOT.jar \
+            --app.resource-copy.dest-dir="$DEST" \
+            --server.port=8080 > app.log 2>&1 &
+          APP_PID=$!
+
+          echo "Waiting for the app to come up (pid $APP_PID)..."
+          UP=0
+          for i in $(seq 1 60); do
+            # any HTTP response (even 405) means the server is listening
+            if curl -s -o /dev/null "http://localhost:8080/api/resource-folders"; then
+              UP=1; break
+            fi
+            sleep 2
+          done
+          if [ "$UP" -ne 1 ]; then
+            echo "App did not start in time"; cat app.log; kill "$APP_PID" 2>/dev/null || true; exit 1
+          fi
+
+          echo "--- PUT /api/resource-folders ---"
+          curl -fsS -X PUT "http://localhost:8080/api/resource-folders" | tee put.json
+          echo
+
+          kill "$APP_PID" 2>/dev/null || true
+
+          echo "--- Verifying copied files under $DEST ---"
+          STATUS=0
+          for f in templates/a.txt templates/sub/b.txt templates/sub/deep/c.json; do
+            if [ -f "$DEST/$f" ]; then
+              echo "OK      $DEST/$f"
+            else
+              echo "MISSING $DEST/$f"; STATUS=1
+            fi
+          done
+          if [ "$STATUS" -ne 0 ]; then echo "--- app.log ---"; cat app.log; fi
+          exit "$STATUS"
+
+      - name: Upload reports and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports-${{ matrix.os }}
-          path: target/surefire-reports/
+          name: reports-${{ matrix.os }}
+          path: |
+            target/surefire-reports/
+            app.log
+            put.json
           if-no-files-found: ignore
