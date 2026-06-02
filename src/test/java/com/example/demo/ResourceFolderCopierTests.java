@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -38,16 +39,16 @@ class ResourceFolderCopierTests {
         assertTrue(Files.isRegularFile(b), "b.txt should exist under sub/");
         assertTrue(Files.isRegularFile(c), "c.json should exist under sub/deep/");
 
-        assertEquals("top-level template", Files.readString(a).trim());
-        assertEquals("nested template b", Files.readString(b).trim());
-        assertTrue(Files.readString(c).contains("\"name\": \"c\""));
+        assertEquals("top-level template", new String(Files.readAllBytes(a), StandardCharsets.UTF_8).trim());
+        assertEquals("nested template b", new String(Files.readAllBytes(b), StandardCharsets.UTF_8).trim());
+        assertTrue(new String(Files.readAllBytes(c), StandardCharsets.UTF_8).contains("\"name\": \"c\""));
     }
 
     @Test
     void backsUpExistingDestination(@TempDir Path tmp) throws IOException {
         Path dest = tmp.resolve("out");
         Files.createDirectories(dest);
-        Files.writeString(dest.resolve("old-file.txt"), "previous contents");
+        Files.write(dest.resolve("old-file.txt"), "previous contents".getBytes(StandardCharsets.UTF_8));
 
         CopyResult result = copier.copyFolder("templates", dest);
 

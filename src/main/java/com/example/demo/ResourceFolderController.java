@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 
@@ -32,7 +33,7 @@ public class ResourceFolderController {
                                     @Value("${app.resource-copy.dest-dir}") String destDir) {
         this.copier = copier;
         this.baseFolder = baseFolder;
-        this.destRoot = Path.of(destDir);
+        this.destRoot = Paths.get(destDir);
     }
 
     /**
@@ -63,10 +64,34 @@ public class ResourceFolderController {
 
     /**
      * Response summarising a completed copy operation.
-     *
-     * @param backup path the previous destination was moved to, or {@code null} if none
      */
-    public record CopyResponse(String baseFolder, String destination, int filesCopied,
-                               String backup) {
+    public static final class CopyResponse {
+        private final String baseFolder;
+        private final String destination;
+        private final int filesCopied;
+        private final String backup;
+
+        public CopyResponse(String baseFolder, String destination, int filesCopied, String backup) {
+            this.baseFolder = baseFolder;
+            this.destination = destination;
+            this.filesCopied = filesCopied;
+            this.backup = backup;
+        }
+
+        public String getBaseFolder() {
+            return baseFolder;
+        }
+
+        public String getDestination() {
+            return destination;
+        }
+
+        public int getFilesCopied() {
+            return filesCopied;
+        }
+
+        public String getBackup() {
+            return backup;
+        }
     }
 }
