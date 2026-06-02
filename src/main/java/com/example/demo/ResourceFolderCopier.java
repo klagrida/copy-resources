@@ -103,11 +103,22 @@ public class ResourceFolderCopier {
 
     /**
      * Result of a copy operation.
-     *
-     * @param filesCopied number of files written into the destination
-     * @param backup      where the previous destination was moved, or {@code null} if the
-     *                    destination did not previously exist
      */
-    public record CopyResult(int filesCopied, Path backup) {
+    public static final class CopyResult {
+        private final int filesCopied;
+        private final Path backup;
+
+        public CopyResult(int filesCopied, Path backup) {
+            this.filesCopied = filesCopied;
+            this.backup = backup;
+        }
+
+        public int filesCopied() {
+            return filesCopied;
+        }
+
+        public Path backup() {
+            return backup;
+        }
     }
 }

@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,7 +21,7 @@ class ResourceFolderListerTests {
         List<String> files = lister.listFiles("templates");
 
         assertEquals(
-                List.of("templates/a.txt", "templates/sub/b.txt", "templates/sub/deep/c.json"),
+                Arrays.asList("templates/a.txt", "templates/sub/b.txt", "templates/sub/deep/c.json"),
                 files);
     }
 
@@ -29,7 +30,7 @@ class ResourceFolderListerTests {
         List<ResourceFolderLister.Entry> entries = lister.listEntries("templates");
 
         assertEquals(
-                List.of(
+                Arrays.asList(
                         new ResourceFolderLister.Entry("templates", true),
                         new ResourceFolderLister.Entry("templates/a.txt", false),
                         new ResourceFolderLister.Entry("templates/sub", true),

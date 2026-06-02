@@ -6,8 +6,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -41,7 +41,7 @@ public class ResourceFolderLister {
         Resource[] resources =
                 resolver.getResources("classpath*:" + baseFolder + "/**/*");
 
-        List<String> paths = new ArrayList<>();
+        List<String> paths = new ArrayList<String>();
         for (Resource resource : resources) {
             if (!resource.isReadable()) {
                 continue; // skip directory entries
@@ -69,8 +69,8 @@ public class ResourceFolderLister {
         Resource[] resources =
                 resolver.getResources("classpath*:" + baseFolder + "/**/*");
 
-        TreeSet<String> directories = new TreeSet<>();
-        TreeSet<String> files = new TreeSet<>();
+        TreeSet<String> directories = new TreeSet<String>();
+        TreeSet<String> files = new TreeSet<String>();
         for (Resource resource : resources) {
             if (!resource.isReadable()) {
                 continue; // skip archive directory entries; we derive directories ourselves
@@ -84,11 +84,15 @@ public class ResourceFolderLister {
             }
         }
 
-        List<Entry> entries = new ArrayList<>(directories.size() + files.size());
-        directories.forEach(d -> entries.add(new Entry(d, true)));
-        files.forEach(f -> entries.add(new Entry(f, false)));
+        List<Entry> entries = new ArrayList<Entry>(directories.size() + files.size());
+        for (String d : directories) {
+            entries.add(new Entry(d, true));
+        }
+        for (String f : files) {
+            entries.add(new Entry(f, false));
+        }
         // lexicographic order on the path puts each directory before everything inside it
-        entries.sort(Comparator.comparing(Entry::path));
+        Collections.sort(entries, Comparator.comparing(Entry::path));
         return entries;
     }
 
@@ -105,12 +109,41 @@ public class ResourceFolderLister {
 
     /**
      * A single entry in the listing.
-     *
-     * @param path      base-folder-prefixed path with {@code '/'} separators, e.g.
-     *                  {@code "templates/sub"} or {@code "templates/sub/b.txt"}
-     * @param directory {@code true} for a directory, {@code false} for a file
      */
-    public record Entry(String path, boolean directory) {
+    public static final class Entry {
+        private final String path;
+        private final boolean directory;
+
+        public Entry(String path, boolean directory) {
+            this.path = path;
+            this.directory = directory;
+        }
+
+        public String path() {
+            return path;
+        }
+
+        public boolean directory() {
+            return directory;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Entry)) return false;
+            Entry other = (Entry) o;
+            return directory == other.directory && path.equals(other.path);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * path.hashCode() + (directory ? 1 : 0);
+        }
+
+        @Override
+        public String toString() {
+            return "Entry{path='" + path + "', directory=" + directory + '}';
+        }
     }
 
     /**
@@ -132,7 +165,7 @@ public class ResourceFolderLister {
      * Decodes percent-escapes from a URL path while preserving a literal {@code '+'}
      * (which {@link URLDecoder} would otherwise turn into a space).
      */
-    private static String decode(String urlPath) {
-        return URLDecoder.decode(urlPath.replace("+", "%2B"), StandardCharsets.UTF_8);
+    private static String decode(String urlPath) throws UnsupportedEncodingException {
+        return URLDecoder.decode(urlPath.replace("+", "%2B"), "UTF-8");
     }
 }
