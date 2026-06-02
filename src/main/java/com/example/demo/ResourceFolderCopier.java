@@ -53,22 +53,14 @@ public class ResourceFolderCopier {
         }
         Files.createDirectories(destination);
 
-        // Directories and files, parent-first, each prefixed with the base folder.
         List<Entry> entries = lister.listEntries(baseFolder);
-        String prefix = baseFolder + "/";
 
         int copied = 0;
         for (Entry entry : entries) {
-            // strip the base-folder prefix: the base folder itself maps to `destination`
-            if (entry.path().equals(baseFolder)) {
-                continue; // already created above
-            }
-            String relativePath = entry.path().substring(prefix.length());
-
             // Resolve segment-by-segment so the "/"-separated path maps onto the local
             // filesystem correctly (works on Windows too).
             Path target = destination;
-            for (String segment : relativePath.split("/")) {
+            for (String segment : entry.path().split("/")) {
                 if (!segment.isEmpty()) {
                     target = target.resolve(segment);
                 }
@@ -77,7 +69,7 @@ public class ResourceFolderCopier {
             if (entry.directory()) {
                 Files.createDirectories(target);
             } else {
-                try (InputStream is = lister.openStream(entry.path())) {
+                try (InputStream is = lister.openStream(baseFolder, entry.path())) {
                     Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
                 }
                 copied++;

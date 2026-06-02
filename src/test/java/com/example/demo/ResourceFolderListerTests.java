@@ -21,7 +21,7 @@ class ResourceFolderListerTests {
         List<String> files = lister.listFiles("templates");
 
         assertEquals(
-                Arrays.asList("templates/a.txt", "templates/sub/b.txt", "templates/sub/deep/c.json"),
+                Arrays.asList("a.txt", "sub/b.txt", "sub/deep/c.json"),
                 files);
     }
 
@@ -31,12 +31,11 @@ class ResourceFolderListerTests {
 
         assertEquals(
                 Arrays.asList(
-                        new ResourceFolderLister.Entry("templates", true),
-                        new ResourceFolderLister.Entry("templates/a.txt", false),
-                        new ResourceFolderLister.Entry("templates/sub", true),
-                        new ResourceFolderLister.Entry("templates/sub/b.txt", false),
-                        new ResourceFolderLister.Entry("templates/sub/deep", true),
-                        new ResourceFolderLister.Entry("templates/sub/deep/c.json", false)),
+                        new ResourceFolderLister.Entry("a.txt", false),
+                        new ResourceFolderLister.Entry("sub", true),
+                        new ResourceFolderLister.Entry("sub/b.txt", false),
+                        new ResourceFolderLister.Entry("sub/deep", true),
+                        new ResourceFolderLister.Entry("sub/deep/c.json", false)),
                 entries);
     }
 }
